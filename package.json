@@ -8,6 +8,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview"
+    "homepage": "https://sanit14.github.io/TruckFlow"
   },
   "dependencies": {
     "leaflet": "^1.9.4",
