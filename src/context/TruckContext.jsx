@@ -90,13 +90,48 @@ export function TruckProvider({ children }) {
   );
 
   // ── Computed geofence distances ────────────────────────────────
+  // ── Add a new truck ────────────────────────────────────────────
+  const addTruck = useCallback((data) => {
+    setTrucks((prev) => {
+      const newTruck = {
+        id: `tk${Date.now()}`,
+        name: data.name?.trim() || `TRK-${String(prev.length + 1).padStart(3, '0')}`,
+        plateNumber: data.plateNumber.trim(),
+        model: data.model?.trim() || '',
+        year: data.year ? parseInt(data.year) : '',
+        ownerName: data.ownerName?.trim() || '',
+        driver: data.driver?.trim() || '',
+        driverPhone: data.driverPhone?.trim() || '',
+        insuranceExpiry: data.insuranceExpiry || '',
+        status: 'Idle',
+        lat: OFFICE_LOCATION.lat,
+        lng: OFFICE_LOCATION.lng,
+        lastUpdated: new Date().toISOString(),
+      };
+      addAlert({ type: 'status', truck: newTruck.name, message: `${newTruck.name} (${newTruck.plateNumber}) added to fleet` });
+      return [...prev, newTruck];
+    });
+  }, [addAlert]);
+
+  // ── Remove a truck ─────────────────────────────────────────────
+  const removeTruck = useCallback((truckId) => {
+    setTrucks((prev) => {
+      const truck = prev.find((t) => t.id === truckId);
+      if (truck) {
+        addAlert({ type: 'status', truck: truck.name, message: `${truck.name} removed from fleet` });
+      }
+      return prev.filter((t) => t.id !== truckId);
+    });
+  }, [addAlert]);
+
+  // ── Computed geofence distances ────────────────────────────────
   const truckDistances = trucks.map((t) => {
     const distKm = haversineKm(t.lat, t.lng, OFFICE_LOCATION.lat, OFFICE_LOCATION.lng);
     return { id: t.id, distKm, inside: distKm <= GEOFENCE_RADIUS_KM };
   });
 
   return (
-    <TruckContext.Provider value={{ trucks, alerts, updateStatus, updateLocation, truckDistances }}>
+    <TruckContext.Provider value={{ trucks, alerts, addTruck, removeTruck, updateStatus, updateLocation, truckDistances }}>
       {children}
     </TruckContext.Provider>
   );

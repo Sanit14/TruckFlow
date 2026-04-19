@@ -6,11 +6,11 @@ const STEPS = { PHONE: 'PHONE', OTP: 'OTP' };
 
 export default function LoginPage() {
   const { sendOTP, verifyOTP } = useAuth();
-  const [step, setStep]       = useState(STEPS.PHONE);
-  const [phone, setPhone]     = useState('');
-  const [otp, setOtp]         = useState(['', '', '', '', '', '']);
-  const [error, setError]     = useState('');
-  const [hint, setHint]       = useState('');
+  const [step, setStep] = useState(STEPS.PHONE);
+  const [phone, setPhone] = useState('');
+  const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  const [error, setError] = useState('');
+  const [hint, setHint] = useState('');
   const [loading, setLoading] = useState(false);
   const otpRefs = useRef([]);
 
@@ -60,7 +60,7 @@ export default function LoginPage() {
         <div className="flex flex-col items-center mb-10">
           <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-500 to-indigo-700 flex items-center justify-center shadow-lg shadow-brand-900/50 mb-4">
             <svg viewBox="0 0 24 24" fill="white" className="w-9 h-9">
-              <path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h6c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zM6 18.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm13.5-9l1.96 2.5H17V9.5h2.5zm-1.5 9c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/>
+              <path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h6c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zM6 18.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm13.5-9l1.96 2.5H17V9.5h2.5zm-1.5 9c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z" />
             </svg>
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-white">TruckFlow</h1>
@@ -86,7 +86,7 @@ export default function LoginPage() {
                     type="tel"
                     inputMode="numeric"
                     maxLength={10}
-                    placeholder="98765 43210"
+                    placeholder="9579115044"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                     className="input-field"
@@ -113,7 +113,7 @@ export default function LoginPage() {
           ) : (
             <form onSubmit={handleVerify} className="space-y-6 animate-slide-up">
               <div>
-                <button type="button" onClick={() => { setStep(STEPS.PHONE); setError(''); setOtp(['','','','','','']); }}
+                <button type="button" onClick={() => { setStep(STEPS.PHONE); setError(''); setOtp(['', '', '', '', '', '']); }}
                   className="flex items-center gap-2 text-slate-400 hover:text-white text-sm mb-4 transition-colors">
                   ← Back
                 </button>

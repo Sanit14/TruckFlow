@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useTrucks } from '../../context/TruckContext';
 import { TRUCK_STATUSES, fmtTime } from '../../data/mockData';
 import StatusBadge from '../Common/StatusBadge';
+import TruckMap from '../Admin/TruckMap';
 
 const STATUS_ICONS = {
   Idle:      '⏸️',
@@ -139,10 +140,11 @@ function LocationModal({ truck, onClose, onSave }) {
 // ── Main Dashboard ────────────────────────────────────────────────
 export default function ManagerDashboard({ compact = false }) {
   const { trucks, updateStatus, updateLocation, truckDistances } = useTrucks();
-  const [expandedTruck, setExpandedTruck]   = useState(null);
-  const [locationTruck, setLocationTruck]   = useState(null);
-  const [updating, setUpdating]             = useState(false);
-  const [toast, setToast]                   = useState(null);
+  const [activeTab, setActiveTab]               = useState('trucks');
+  const [expandedTruck, setExpandedTruck]        = useState(null);
+  const [locationTruck, setLocationTruck]        = useState(null);
+  const [updating, setUpdating]                  = useState(false);
+  const [toast, setToast]                        = useState(null);
 
   const showToast = (msg, type = 'success') => {
     setToast({ msg, type });
@@ -176,6 +178,33 @@ export default function ManagerDashboard({ compact = false }) {
           <p className="text-slate-400 text-sm mt-0.5">
             Tap a truck to update status or location · {trucks.length} trucks total
           </p>
+        </div>
+      )}
+
+      {/* Tab switcher (only when not compact/nested) */}
+      {!compact && (
+        <div className="flex gap-2 border-b border-white/8">
+          {[{ id: 'trucks', label: 'My Trucks' }, { id: 'map', label: '🗺️ Live Map' }].map((tab) => (
+            <button
+              key={tab.id}
+              id={`manager-tab-${tab.id}`}
+              onClick={() => setActiveTab(tab.id)}
+              className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-all ${
+                activeTab === tab.id
+                  ? 'text-white border-b-2 border-brand-400'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Live Map tab */}
+      {!compact && activeTab === 'map' && (
+        <div className="glass rounded-2xl p-3 h-[520px] animate-fade-in">
+          <TruckMap />
         </div>
       )}
 

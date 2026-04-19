@@ -7,7 +7,7 @@ export const GEOFENCE_RADIUS_KM = 5;
 // TO CHANGE PHONE NUMBERS: edit the `phone` values below (10-digit, no country code).
 // Role must be 'admin' or 'manager'.
 export const DEMO_USERS = [
-  { id: 'u1', phone: '9876543210', role: 'admin',   name: 'Admin User' },
+  { id: 'u1', phone: '9876543210', role: 'admin', name: 'Admin User' },
   { id: 'u2', phone: '9123456789', role: 'manager', name: 'Manager User' },
 ];
 
@@ -31,7 +31,12 @@ export const INITIAL_TRUCKS = [
     id: 'tk1',
     name: 'TRK-001',
     plateNumber: 'DL 01 AB 1234',
+    model: 'Tata Prima 4928.S',
+    year: 2021,
+    ownerName: 'Singh Logistics Pvt. Ltd.',
     driver: 'Rajesh Kumar',
+    driverPhone: '9876543210',
+    insuranceExpiry: '2025-06-15',
     status: 'Idle',
     lat: 28.6200,
     lng: 77.2150,
@@ -41,7 +46,12 @@ export const INITIAL_TRUCKS = [
     id: 'tk2',
     name: 'TRK-002',
     plateNumber: 'DL 02 CD 5678',
+    model: 'Ashok Leyland 3518',
+    year: 2020,
+    ownerName: 'Patel Transport Co.',
     driver: 'Suresh Patel',
+    driverPhone: '9123456789',
+    insuranceExpiry: '2025-12-31',
     status: 'Loading',
     lat: 28.5960,
     lng: 77.1840,
@@ -51,7 +61,12 @@ export const INITIAL_TRUCKS = [
     id: 'tk3',
     name: 'TRK-003',
     plateNumber: 'DL 03 EF 9012',
+    model: 'Eicher Pro 6055',
+    year: 2022,
+    ownerName: 'Singh Logistics Pvt. Ltd.',
     driver: 'Mahesh Singh',
+    driverPhone: '',
+    insuranceExpiry: '2025-05-02',
     status: 'Outgoing',
     lat: 28.6420,
     lng: 77.2340,
@@ -72,8 +87,8 @@ export function haversineKm(lat1, lon1, lat2, lon2) {
   const a =
     Math.sin(dLat / 2) ** 2 +
     Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) ** 2;
+    Math.cos((lat2 * Math.PI) / 180) *
+    Math.sin(dLon / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 

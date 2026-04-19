@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useTrucks } from '../../context/TruckContext';
 import TruckMap from './TruckMap';
 import AlertPanel from './AlertPanel';
-import ManagerDashboard from '../Manager/ManagerDashboard';
+import TruckManagement from './TruckManagement';
 
 const STAT_CARDS = (trucks, alerts) => [
   {
@@ -74,7 +74,7 @@ export default function AdminDashboard() {
 
       {/* Tabs */}
       <div className="flex gap-2 border-b border-white/8 pb-0">
-        {['overview', 'trucks', 'alerts'].map((tab) => (
+        {['overview', 'fleet', 'alerts'].map((tab) => (
           <button
             key={tab}
             id={`tab-${tab}`}
@@ -85,7 +85,7 @@ export default function AdminDashboard() {
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            {tab}
+            {tab === 'fleet' ? '🚛 Fleet' : tab}
           </button>
         ))}
       </div>
@@ -104,9 +104,9 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* ── Trucks tab – reuses Manager view incl. Set Location ── */}
-      {activeTab === 'trucks' && (
-        <ManagerDashboard compact />
+      {/* ── Fleet tab: add/remove trucks, insurance alerts ── */}
+      {activeTab === 'fleet' && (
+        <TruckManagement />
       )}
 
       {/* ── Alerts tab ── */}
