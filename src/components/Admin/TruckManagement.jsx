@@ -2,13 +2,14 @@ import { useState } from 'react';
 import { useTrucks } from '../../context/TruckContext';
 import { TRUCK_STATUSES, fmtTime } from '../../data/mockData';
 import StatusBadge from '../Common/StatusBadge';
+import TruckProfileModal from './TruckProfileModal';
 
 // ── Insurance status helper ────────────────────────────────────────
 function insuranceInfo(expiryDate) {
   if (!expiryDate) return { color: 'slate', label: 'Not set', days: null, icon: '⬜' };
   const days = Math.ceil((new Date(expiryDate) - new Date()) / 86400000);
   if (days < 0)  return { color: 'rose',   label: `Expired ${Math.abs(days)}d ago`, days, icon: '🔴' };
-  if (days <= 30) return { color: 'amber',  label: `${days}d left`,                  days, icon: '🟡' };
+  if (days >= 0 && days <= 20) return { color: 'amber',  label: `${days}d left`,                  days, icon: '🟡' };
   return             { color: 'emerald', label: `${days}d left`,                  days, icon: '🟢' };
 }
 
@@ -24,9 +25,10 @@ function Field({ label, required, children }) {
   );
 }
 
-// ── Add Truck Modal ────────────────────────────────────────────────
-function AddTruckModal({ onClose, onSave, truckCount }) {
-  const [form, setForm] = useState({
+// ── Truck Form Modal (Add / Edit) ──────────────────────────────────────────
+function TruckFormModal({ onClose, onSave, truckCount, initialData }) {
+  const isEdit = !!initialData;
+  const [form, setForm] = useState(initialData || {
     name: '',
     plateNumber: '',
     model: '',
@@ -45,7 +47,7 @@ function AddTruckModal({ onClose, onSave, truckCount }) {
     onSave(form);
   };
 
-  const defaultName = `TRK-${String(truckCount + 1).padStart(3, '0')}`;
+  const defaultName = isEdit ? form.name : `TRK-${String(truckCount + 1).padStart(3, '0')}`;
 
   return (
     <div
@@ -59,11 +61,11 @@ function AddTruckModal({ onClose, onSave, truckCount }) {
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h3 className="text-white font-bold text-base">🚛 Add New Truck</h3>
-            <p className="text-slate-400 text-xs mt-0.5">Fill in the truck details below</p>
+            <h3 className="text-white font-bold text-base">{isEdit ? '🚛 Edit Truck' : '🚛 Add New Truck'}</h3>
+            <p className="text-slate-400 text-xs mt-0.5">{isEdit ? 'Update truck details below' : 'Fill in the truck details below'}</p>
           </div>
           <button
-            id="add-truck-modal-close"
+            id="truck-form-close"
             onClick={onClose}
             className="w-7 h-7 rounded-lg bg-white/10 hover:bg-white/20 text-slate-400 hover:text-white transition-all flex items-center justify-center text-sm"
           >
@@ -77,7 +79,7 @@ function AddTruckModal({ onClose, onSave, truckCount }) {
 
           <Field label="Number Plate" required>
             <input
-              id="add-truck-plate"
+              id="truck-form-plate"
               type="text"
               placeholder="DL 01 AB 1234"
               value={form.plateNumber}
@@ -92,7 +94,7 @@ function AddTruckModal({ onClose, onSave, truckCount }) {
           <div className="grid grid-cols-2 gap-3">
             <Field label="Truck Name">
               <input
-                id="add-truck-name"
+                id="truck-form-name"
                 type="text"
                 placeholder={defaultName}
                 value={form.name}
@@ -102,7 +104,7 @@ function AddTruckModal({ onClose, onSave, truckCount }) {
             </Field>
             <Field label="Year">
               <input
-                id="add-truck-year"
+                id="truck-form-year"
                 type="number"
                 placeholder="2022"
                 min="1990"
@@ -116,7 +118,7 @@ function AddTruckModal({ onClose, onSave, truckCount }) {
 
           <Field label="Model / Make">
             <input
-              id="add-truck-model"
+              id="truck-form-model"
               type="text"
               placeholder="e.g. Tata Prima 4928.S"
               value={form.model}
@@ -127,7 +129,7 @@ function AddTruckModal({ onClose, onSave, truckCount }) {
 
           <Field label="Insurance Expiry Date">
             <input
-              id="add-truck-insurance"
+              id="truck-form-insurance"
               type="date"
               value={form.insuranceExpiry}
               onChange={(e) => set('insuranceExpiry', e.target.value)}
@@ -138,7 +140,7 @@ function AddTruckModal({ onClose, onSave, truckCount }) {
 
           <Field label="Owner / Company Name">
             <input
-              id="add-truck-owner"
+              id="truck-form-owner"
               type="text"
               placeholder="Optional"
               value={form.ownerName}
@@ -154,7 +156,7 @@ function AddTruckModal({ onClose, onSave, truckCount }) {
 
           <Field label="Driver Name">
             <input
-              id="add-truck-driver"
+              id="truck-form-driver"
               type="text"
               placeholder="Full name"
               value={form.driver}
@@ -165,7 +167,7 @@ function AddTruckModal({ onClose, onSave, truckCount }) {
 
           <Field label="Driver Phone">
             <input
-              id="add-truck-driver-phone"
+              id="truck-form-driver-phone"
               type="tel"
               inputMode="numeric"
               placeholder="10-digit number"
@@ -184,8 +186,8 @@ function AddTruckModal({ onClose, onSave, truckCount }) {
         )}
 
         <div className="flex gap-3 mt-5">
-          <button id="add-truck-cancel" onClick={onClose} className="btn-ghost flex-1 text-sm">Cancel</button>
-          <button id="add-truck-save"   onClick={handleSave} className="btn-primary flex-1 text-sm">Add Truck</button>
+          <button id="truck-form-cancel" onClick={onClose} className="btn-ghost flex-1 text-sm">Cancel</button>
+          <button id="truck-form-save"   onClick={handleSave} className="btn-primary flex-1 text-sm">{isEdit ? 'Save Changes' : 'Add Truck'}</button>
         </div>
       </div>
     </div>
@@ -241,10 +243,14 @@ function InfoRow({ icon, label, mono, warn, dim }) {
 
 // ── Main Component ─────────────────────────────────────────────────
 export default function TruckManagement() {
-  const { trucks, addTruck, removeTruck, truckDistances, updateStatus } = useTrucks();
+  const { trucks, addTruck, removeTruck, editTruck, truckDistances, updateStatus } = useTrucks();
   const [showAdd, setShowAdd]           = useState(false);
+  const [editTarget, setEditTarget]     = useState(null);
   const [removeTarget, setRemoveTarget] = useState(null);
+  const [profileTarget, setProfileTarget] = useState(null);
   const [expandedTruck, setExpandedTruck] = useState(null);
+  const [searchTerm, setSearchTerm]       = useState('');
+  const [statusFilter, setStatusFilter]   = useState('All');
   const [toast, setToast]               = useState(null);
 
   const showToast = (msg, type = 'success') => {
@@ -256,6 +262,12 @@ export default function TruckManagement() {
     addTruck(data);
     setShowAdd(false);
     showToast(`${data.plateNumber || 'Truck'} added to fleet ✅`);
+  };
+
+  const handleEdit = (data) => {
+    editTruck(editTarget.id, data);
+    setEditTarget(null);
+    showToast(`${data.plateNumber || 'Truck'} updated ✅`);
   };
 
   const handleRemove = () => {
@@ -273,7 +285,16 @@ export default function TruckManagement() {
   // Insurance alert banner
   const alertTrucks = trucks.filter((t) => {
     if (!t.insuranceExpiry) return false;
-    return Math.ceil((new Date(t.insuranceExpiry) - new Date()) / 86400000) <= 30;
+    const days = Math.ceil((new Date(t.insuranceExpiry) - new Date()) / 86400000);
+    return days >= 0 && days <= 20;
+  });
+
+  // Filter and search
+  const filteredTrucks = trucks.filter((t) => {
+    const searchStr = `${t.name} ${t.plateNumber} ${t.driver || ''}`.toLowerCase();
+    const matchesSearch = searchStr.includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === 'All' || t.status === statusFilter;
+    return matchesSearch && matchesStatus;
   });
 
   return (
@@ -328,16 +349,39 @@ export default function TruckManagement() {
         </div>
       )}
 
+      {/* Search and Filter */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex-1 relative">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">🔍</span>
+          <input
+            type="text"
+            placeholder="Search by name, plate, or driver..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full bg-white/5 border border-white/10 rounded-xl py-2 pl-9 pr-4 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition-all"
+          />
+        </div>
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="bg-white/5 border border-white/10 rounded-xl py-2 px-4 text-sm text-white focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition-all cursor-pointer"
+          style={{ colorScheme: 'dark' }}
+        >
+          <option value="All" className="bg-slate-900 text-white">All Statuses</option>
+          {TRUCK_STATUSES.map(s => <option key={s} value={s} className="bg-slate-900 text-white">{s}</option>)}
+        </select>
+      </div>
+
       {/* Truck cards */}
-      {trucks.length === 0 ? (
+      {filteredTrucks.length === 0 ? (
         <div className="glass rounded-2xl p-12 flex flex-col items-center justify-center text-slate-600">
           <p className="text-5xl mb-3">🚛</p>
-          <p className="text-base font-medium text-slate-500">No trucks in fleet</p>
-          <p className="text-sm mt-1">Click "Add Truck" to get started</p>
+          <p className="text-base font-medium text-slate-500">No trucks found</p>
+          <p className="text-sm mt-1">Adjust your filters or add a new truck</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-          {trucks.map((truck) => {
+          {filteredTrucks.map((truck) => {
             const dist   = truckDistances.find((d) => d.id === truck.id);
             const ins    = insuranceInfo(truck.insuranceExpiry);
             const isOpen = expandedTruck === truck.id;
@@ -428,14 +472,28 @@ export default function TruckManagement() {
                   </div>
                 )}
 
-                {/* Remove */}
-                <button
-                  id={`remove-truck-${truck.id}`}
-                  onClick={() => setRemoveTarget(truck)}
-                  className="mt-2 w-full flex items-center justify-center gap-2 rounded-xl py-2 text-xs font-medium bg-rose-900/20 border border-rose-700/20 text-rose-400 hover:bg-rose-900/40 hover:text-rose-300 transition-all"
-                >
-                  🗑️ Remove Truck
-                </button>
+                {/* Actions */}
+                <div className="flex gap-2 mt-2">
+                  <button
+                    onClick={() => setProfileTarget(truck)}
+                    className="flex-1 flex items-center justify-center gap-2 rounded-xl py-2 text-xs font-medium bg-indigo-900/20 border border-indigo-700/20 text-indigo-400 hover:bg-indigo-900/40 hover:text-indigo-300 transition-all"
+                  >
+                    📄 Docs
+                  </button>
+                  <button
+                    onClick={() => setEditTarget(truck)}
+                    className="flex-1 flex items-center justify-center gap-2 rounded-xl py-2 text-xs font-medium bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 hover:text-white transition-all"
+                  >
+                    ✏️ Edit
+                  </button>
+                  <button
+                    id={`remove-truck-${truck.id}`}
+                    onClick={() => setRemoveTarget(truck)}
+                    className="flex-1 flex items-center justify-center gap-2 rounded-xl py-2 text-xs font-medium bg-rose-900/20 border border-rose-700/20 text-rose-400 hover:bg-rose-900/40 hover:text-rose-300 transition-all"
+                  >
+                    🗑️ Remove
+                  </button>
+                </div>
               </div>
             );
           })}
@@ -444,10 +502,23 @@ export default function TruckManagement() {
 
       {/* Modals */}
       {showAdd && (
-        <AddTruckModal
+        <TruckFormModal
           truckCount={trucks.length}
           onClose={() => setShowAdd(false)}
           onSave={handleAdd}
+        />
+      )}
+      {editTarget && (
+        <TruckFormModal
+          initialData={editTarget}
+          onClose={() => setEditTarget(null)}
+          onSave={handleEdit}
+        />
+      )}
+      {profileTarget && (
+        <TruckProfileModal
+          truckId={profileTarget.id}
+          onClose={() => setProfileTarget(null)}
         />
       )}
       {removeTarget && (

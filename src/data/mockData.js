@@ -7,8 +7,8 @@ export const GEOFENCE_RADIUS_KM = 5;
 // TO CHANGE PHONE NUMBERS: edit the `phone` values below (10-digit, no country code).
 // Role must be 'admin' or 'manager'.
 export const DEMO_USERS = [
-  { id: 'u1', phone: '9876543210', role: 'admin', name: 'Admin User' },
-  { id: 'u2', phone: '9123456789', role: 'manager', name: 'Manager User' },
+  { id: 'u1', phone: '9579115044', role: 'admin', name: 'Admin User' },
+  { id: 'u2', phone: '9403014786', role: 'manager', name: 'Manager User' },
 ];
 
 // ── Quick reference: Indian city coordinates ───────────────────────
@@ -23,7 +23,7 @@ export const DEMO_USERS = [
 // Ahmedabad  : 23.0225, 72.5714
 
 // ── Default OTP (mock) ────────────────────────────────────────────
-export const DEMO_OTP = '123456';
+export const DEMO_OTP = '121212';
 
 // ── Truck list ────────────────────────────────────────────────────
 export const INITIAL_TRUCKS = [
@@ -36,7 +36,7 @@ export const INITIAL_TRUCKS = [
     ownerName: 'Singh Logistics Pvt. Ltd.',
     driver: 'Rajesh Kumar',
     driverPhone: '9876543210',
-    insuranceExpiry: '2025-06-15',
+    insuranceExpiry: '2026-05-09', // 17 days from 2026-04-22
     status: 'Idle',
     lat: 28.6200,
     lng: 77.2150,
@@ -51,27 +51,12 @@ export const INITIAL_TRUCKS = [
     ownerName: 'Patel Transport Co.',
     driver: 'Suresh Patel',
     driverPhone: '9123456789',
-    insuranceExpiry: '2025-12-31',
+    insuranceExpiry: '2026-05-03', // 11 days from 2026-04-22
     status: 'Loading',
     lat: 28.5960,
     lng: 77.1840,
     lastUpdated: new Date().toISOString(),
-  },
-  {
-    id: 'tk3',
-    name: 'TRK-003',
-    plateNumber: 'DL 03 EF 9012',
-    model: 'Eicher Pro 6055',
-    year: 2022,
-    ownerName: 'Singh Logistics Pvt. Ltd.',
-    driver: 'Mahesh Singh',
-    driverPhone: '',
-    insuranceExpiry: '2025-05-02',
-    status: 'Outgoing',
-    lat: 28.6420,
-    lng: 77.2340,
-    lastUpdated: new Date().toISOString(),
-  },
+  }
 ];
 
 export const TRUCK_STATUSES = ['Idle', 'Loading', 'Unloading', 'Incoming', 'Outgoing'];

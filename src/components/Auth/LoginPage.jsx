@@ -105,8 +105,8 @@ export default function LoginPage() {
               {/* Demo credentials hint */}
               <div className="bg-brand-900/30 border border-brand-700/30 rounded-xl p-4 space-y-1">
                 <p className="text-xs font-semibold text-brand-300 uppercase tracking-wide mb-2">Demo Accounts</p>
-                <p className="text-xs text-slate-400"><span className="text-slate-300 font-medium">Admin:</span> 9876543210</p>
-                <p className="text-xs text-slate-400"><span className="text-slate-300 font-medium">Manager:</span> 9123456789</p>
+                <p className="text-xs text-slate-400"><span className="text-slate-300 font-medium">Admin:</span> 9579115044</p>
+                <p className="text-xs text-slate-400"><span className="text-slate-300 font-medium">Manager:</span> 9403014786</p>
                 <p className="text-xs text-slate-400 mt-1">OTP: <span className="font-mono font-bold text-brand-300">{DEMO_OTP}</span></p>
               </div>
             </form>

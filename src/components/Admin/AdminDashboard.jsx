@@ -3,6 +3,7 @@ import { useTrucks } from '../../context/TruckContext';
 import TruckMap from './TruckMap';
 import AlertPanel from './AlertPanel';
 import TruckManagement from './TruckManagement';
+import AnalyticsDashboard from './AnalyticsDashboard';
 
 const STAT_CARDS = (trucks, alerts) => [
   {
@@ -74,7 +75,7 @@ export default function AdminDashboard() {
 
       {/* Tabs */}
       <div className="flex gap-2 border-b border-white/8 pb-0">
-        {['overview', 'fleet', 'alerts'].map((tab) => (
+        {['overview', 'fleet', 'analytics', 'alerts'].map((tab) => (
           <button
             key={tab}
             id={`tab-${tab}`}
@@ -85,7 +86,7 @@ export default function AdminDashboard() {
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            {tab === 'fleet' ? '🚛 Fleet' : tab}
+            {tab === 'fleet' ? '🚛 Fleet' : tab === 'analytics' ? '📊 Analytics' : tab}
           </button>
         ))}
       </div>
@@ -107,6 +108,11 @@ export default function AdminDashboard() {
       {/* ── Fleet tab: add/remove trucks, insurance alerts ── */}
       {activeTab === 'fleet' && (
         <TruckManagement />
+      )}
+
+      {/* ── Analytics tab ── */}
+      {activeTab === 'analytics' && (
+        <AnalyticsDashboard />
       )}
 
       {/* ── Alerts tab ── */}

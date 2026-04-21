@@ -12,7 +12,7 @@ const TruckContext = createContext(null);
 export function TruckProvider({ children }) {
   const [trucks, setTrucks] = useState(() => {
     try {
-      const stored = localStorage.getItem('tf_trucks');
+      const stored = localStorage.getItem('tf_trucks_v2');
       return stored ? JSON.parse(stored) : INITIAL_TRUCKS;
     } catch {
       return INITIAL_TRUCKS;
@@ -24,7 +24,7 @@ export function TruckProvider({ children }) {
 
   // Persist trucks to localStorage whenever they change
   useEffect(() => {
-    localStorage.setItem('tf_trucks', JSON.stringify(trucks));
+    localStorage.setItem('tf_trucks_v2', JSON.stringify(trucks));
   }, [trucks]);
 
   // ── Add an alert entry ─────────────────────────────────────────
@@ -113,6 +113,32 @@ export function TruckProvider({ children }) {
     });
   }, [addAlert]);
 
+  // ── Edit a truck ───────────────────────────────────────────────
+  const editTruck = useCallback((truckId, data) => {
+    setTrucks((prev) => {
+      const truck = prev.find((t) => t.id === truckId);
+      if (truck) {
+        addAlert({ type: 'status', truck: data.name || truck.name, message: `${data.name || truck.name} details updated` });
+      }
+      return prev.map((t) =>
+        t.id === truckId
+          ? {
+              ...t,
+              name: data.name?.trim() || t.name,
+              plateNumber: data.plateNumber?.trim() || t.plateNumber,
+              model: data.model?.trim() || '',
+              year: data.year ? parseInt(data.year) : '',
+              ownerName: data.ownerName?.trim() || '',
+              driver: data.driver?.trim() || '',
+              driverPhone: data.driverPhone?.trim() || '',
+              insuranceExpiry: data.insuranceExpiry || '',
+              lastUpdated: new Date().toISOString(),
+            }
+          : t
+      );
+    });
+  }, [addAlert]);
+
   // ── Remove a truck ─────────────────────────────────────────────
   const removeTruck = useCallback((truckId) => {
     setTrucks((prev) => {
@@ -124,6 +150,26 @@ export function TruckProvider({ children }) {
     });
   }, [addAlert]);
 
+  // ── Document Management ────────────────────────────────────────
+  const addDocument = useCallback((truckId, docData) => {
+    setTrucks((prev) => prev.map(t => {
+      if (t.id === truckId) {
+        const newDoc = { id: `doc${Date.now()}`, date: new Date().toISOString(), ...docData };
+        return { ...t, documents: [...(t.documents || []), newDoc] };
+      }
+      return t;
+    }));
+  }, []);
+
+  const removeDocument = useCallback((truckId, docId) => {
+    setTrucks((prev) => prev.map(t => {
+      if (t.id === truckId) {
+        return { ...t, documents: (t.documents || []).filter(d => d.id !== docId) };
+      }
+      return t;
+    }));
+  }, []);
+
   // ── Computed geofence distances ────────────────────────────────
   const truckDistances = trucks.map((t) => {
     const distKm = haversineKm(t.lat, t.lng, OFFICE_LOCATION.lat, OFFICE_LOCATION.lng);
@@ -131,7 +177,7 @@ export function TruckProvider({ children }) {
   });
 
   return (
-    <TruckContext.Provider value={{ trucks, alerts, addTruck, removeTruck, updateStatus, updateLocation, truckDistances }}>
+    <TruckContext.Provider value={{ trucks, alerts, addTruck, removeTruck, editTruck, updateStatus, updateLocation, truckDistances, addDocument, removeDocument }}>
       {children}
     </TruckContext.Provider>
   );
