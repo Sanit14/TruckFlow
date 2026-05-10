@@ -1,8 +1,10 @@
 import { useState } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import { useTrucks } from '../../context/TruckContext';
 import { TRUCK_STATUSES, fmtTime } from '../../data/mockData';
 import StatusBadge from '../Common/StatusBadge';
 import TruckMap from '../Admin/TruckMap';
+import UploadsList from '../Common/UploadsList';
 
 const STATUS_ICONS = {
   Idle:      '⏸️',
@@ -139,11 +141,14 @@ function LocationModal({ truck, onClose, onSave }) {
 
 // ── Main Dashboard ────────────────────────────────────────────────
 export default function ManagerDashboard({ compact = false }) {
-  const { trucks, updateStatus, updateLocation, truckDistances } = useTrucks();
+  const { user } = useAuth();
+  const { trucks, updateStatus, updateLocation, truckDistances, addUpload } = useTrucks();
   const [activeTab, setActiveTab]               = useState('trucks');
   const [expandedTruck, setExpandedTruck]        = useState(null);
   const [locationTruck, setLocationTruck]        = useState(null);
   const [updating, setUpdating]                  = useState(false);
+  const [photoFile, setPhotoFile]                = useState(null);    // actual File for upload
+  const [photoPreview, setPhotoPreview]          = useState(null);    // base64 for display
   const [toast, setToast]                        = useState(null);
 
   const showToast = (msg, type = 'success') => {
@@ -151,19 +156,35 @@ export default function ManagerDashboard({ compact = false }) {
     setTimeout(() => setToast(null), 3000);
   };
 
-  const handleStatusChange = (truckId, newStatus) => {
+  const handleStatusChange = async (truckId, newStatus) => {
     setUpdating(true);
-    setTimeout(() => {
-      updateStatus(truckId, newStatus);
-      const truck = trucks.find((t) => t.id === truckId);
-      showToast(`${truck?.name} → ${newStatus}`);
-      setExpandedTruck(null);
-      setUpdating(false);
-    }, 350);
+    const truck = trucks.find((t) => t.id === truckId);
+    await updateStatus(truckId, newStatus);
+    if (photoFile) {
+      const result = await addUpload(truckId, truck?.name, photoFile, newStatus, user?.role, user?.name);
+      if (!result?.ok) showToast('Photo upload failed', 'error');
+    }
+    showToast(`${truck?.name} → ${newStatus}`);
+    setExpandedTruck(null);
+    setPhotoFile(null);
+    setPhotoPreview(null);
+    setUpdating(false);
   };
 
-  const handleLocationSave = (lat, lng) => {
-    const result = updateLocation(locationTruck.id, lat, lng);
+  const handleExpand = (truckId) => {
+    if (expandedTruck === truckId) {
+      setExpandedTruck(null);
+      setPhotoFile(null);
+      setPhotoPreview(null);
+    } else {
+      setExpandedTruck(truckId);
+      setPhotoFile(null);
+      setPhotoPreview(null);
+    }
+  };
+
+  const handleLocationSave = async (lat, lng) => {
+    const result = await updateLocation(locationTruck.id, lat, lng);
     if (result?.ok === false) { showToast(result.error, 'error'); return; }
     showToast(`${locationTruck.name} location updated ✅`);
     setLocationTruck(null);
@@ -183,13 +204,17 @@ export default function ManagerDashboard({ compact = false }) {
 
       {/* Tab switcher (only when not compact/nested) */}
       {!compact && (
-        <div className="flex gap-2 border-b border-white/8">
-          {[{ id: 'trucks', label: 'My Trucks' }, { id: 'map', label: '🗺️ Live Map' }].map((tab) => (
+        <div className="flex gap-2 border-b border-white/8 overflow-x-auto scrollbar-hide pb-0">
+          {[
+            { id: 'trucks', label: 'My Trucks' },
+            { id: 'uploads', label: '📷 Uploads' },
+            { id: 'map', label: '🗺️ Live Map' }
+          ].map((tab) => (
             <button
               key={tab.id}
               id={`manager-tab-${tab.id}`}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-all ${
+              className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-all whitespace-nowrap ${
                 activeTab === tab.id
                   ? 'text-white border-b-2 border-brand-400'
                   : 'text-slate-400 hover:text-slate-200'
@@ -199,6 +224,11 @@ export default function ManagerDashboard({ compact = false }) {
             </button>
           ))}
         </div>
+      )}
+
+      {/* Uploads tab */}
+      {!compact && activeTab === 'uploads' && (
+        <UploadsList />
       )}
 
       {/* Live Map tab */}
@@ -235,7 +265,7 @@ export default function ManagerDashboard({ compact = false }) {
               {/* Card header – click to expand status */}
               <div
                 className="cursor-pointer"
-                onClick={() => setExpandedTruck(isOpen ? null : truck.id)}
+                onClick={() => handleExpand(truck.id)}
               >
                 <div className="flex items-start justify-between gap-3 mb-4">
                   <div className="flex items-center gap-3">
@@ -288,6 +318,70 @@ export default function ManagerDashboard({ compact = false }) {
                   className="mt-4 pt-4 border-t border-white/8 animate-slide-up"
                   onClick={(e) => e.stopPropagation()}
                 >
+                  {/* Photo Upload */}
+                  <div className="mb-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-xs text-slate-400 font-medium">Attach Photo (Optional):</p>
+                      {photoPreview && (
+                        <button onClick={() => { setPhotoFile(null); setPhotoPreview(null); }} className="text-[10px] text-rose-400 hover:text-rose-300 transition-colors">
+                          Clear
+                        </button>
+                      )}
+                    </div>
+                    
+                    {photoPreview ? (
+                      <div className="relative w-full h-24 rounded-xl overflow-hidden border border-white/10 group">
+                        <img src={photoPreview} alt="Selected" className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <span className="text-xs font-medium text-white">Selected ✓</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-2">
+                        {/* Camera */}
+                        <label className="flex flex-col items-center justify-center h-16 border border-white/10 rounded-xl cursor-pointer hover:bg-white/5 hover:border-white/20 transition-all bg-white/[0.02]">
+                          <span className="text-lg mb-0.5">📸</span>
+                          <span className="text-[10px] font-medium text-slate-300">Click Now</span>
+                          <input 
+                            type="file" 
+                            accept="image/*" 
+                            capture="environment"
+                            className="hidden" 
+                            onChange={(e) => {
+                              const file = e.target.files[0];
+                              if (file) {
+                                setPhotoFile(file);
+                                const reader = new FileReader();
+                                reader.onloadend = () => setPhotoPreview(reader.result);
+                                reader.readAsDataURL(file);
+                              }
+                            }}
+                          />
+                        </label>
+
+                        {/* Gallery Upload */}
+                        <label className="flex flex-col items-center justify-center h-16 border border-white/10 rounded-xl cursor-pointer hover:bg-white/5 hover:border-white/20 transition-all bg-white/[0.02]">
+                          <span className="text-lg mb-0.5">📂</span>
+                          <span className="text-[10px] font-medium text-slate-300">Upload</span>
+                          <input 
+                            type="file" 
+                            accept="image/*" 
+                            className="hidden" 
+                            onChange={(e) => {
+                              const file = e.target.files[0];
+                              if (file) {
+                                setPhotoFile(file);
+                                const reader = new FileReader();
+                                reader.onloadend = () => setPhotoPreview(reader.result);
+                                reader.readAsDataURL(file);
+                              }
+                            }}
+                          />
+                        </label>
+                      </div>
+                    )}
+                  </div>
+
                   <p className="text-xs text-slate-400 font-medium mb-3">Select new status:</p>
                   <div className="grid grid-cols-2 gap-2">
                     {TRUCK_STATUSES.map((s) => (

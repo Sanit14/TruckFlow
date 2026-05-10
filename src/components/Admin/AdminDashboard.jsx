@@ -4,6 +4,8 @@ import TruckMap from './TruckMap';
 import AlertPanel from './AlertPanel';
 import TruckManagement from './TruckManagement';
 import AnalyticsDashboard from './AnalyticsDashboard';
+import UploadsList from '../Common/UploadsList';
+import DocumentsList from './DocumentsList';
 
 const STAT_CARDS = (trucks, alerts) => [
   {
@@ -74,19 +76,23 @@ export default function AdminDashboard() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 border-b border-white/8 pb-0">
-        {['overview', 'fleet', 'analytics', 'alerts'].map((tab) => (
+      <div className="flex gap-2 border-b border-white/8 pb-0 overflow-x-auto scrollbar-hide">
+        {['overview', 'map', 'fleet', 'documents', 'uploads', 'analytics', 'alerts'].map((tab) => (
           <button
             key={tab}
             id={`tab-${tab}`}
             onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-all capitalize ${
+            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-all capitalize whitespace-nowrap ${
               activeTab === tab
                 ? 'text-white border-b-2 border-brand-400'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            {tab === 'fleet' ? '🚛 Fleet' : tab === 'analytics' ? '📊 Analytics' : tab}
+            {tab === 'fleet' ? '🚛 Fleet' : 
+             tab === 'analytics' ? '📊 Analytics' : 
+             tab === 'map' ? '🗺️ Live Map' : 
+             tab === 'documents' ? '📄 Documents' : 
+             tab === 'uploads' ? '📷 Uploads' : tab}
           </button>
         ))}
       </div>
@@ -103,6 +109,23 @@ export default function AdminDashboard() {
             <AlertPanel />
           </div>
         </div>
+      )}
+
+      {/* ── Map tab (Full Screen-ish) ── */}
+      {activeTab === 'map' && (
+        <div className="glass rounded-2xl p-3 h-[600px] animate-fade-in">
+          <TruckMap />
+        </div>
+      )}
+
+      {/* ── Documents tab ── */}
+      {activeTab === 'documents' && (
+        <DocumentsList />
+      )}
+
+      {/* ── Uploads tab ── */}
+      {activeTab === 'uploads' && (
+        <UploadsList />
       )}
 
       {/* ── Fleet tab: add/remove trucks, insurance alerts ── */}

@@ -38,7 +38,7 @@ export default function AlertPanel() {
                 <span className="text-base shrink-0 leading-none mt-0.5">{style.icon}</span>
                 <div className="min-w-0">
                   <p className="text-slate-200 font-medium leading-tight truncate">{a.message}</p>
-                  <p className="text-slate-500 mt-0.5">{fmtTime(a.time)}</p>
+                  <p className="text-slate-500 mt-0.5">{fmtTime(a.created_at)}</p>
                 </div>
               </div>
             );

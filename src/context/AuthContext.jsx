@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback } from 'react';
-import { DEMO_USERS, DEMO_OTP } from '../data/mockData';
+import { supabase } from '../lib/supabase';
 
 const AuthContext = createContext(null);
 
@@ -12,26 +12,69 @@ export function AuthProvider({ children }) {
       return null;
     }
   });
+  const [loading, setLoading] = useState(false);
 
-  // Step 1: send OTP (mock – just validates phone format)
-  const sendOTP = useCallback((phone) => {
-    // Accept any 10-digit Indian phone number
+  // ── Step 1: Validate phone is whitelisted ─────────────────────────
+  const sendOTP = useCallback(async (phone) => {
     const clean = phone.replace(/\D/g, '').slice(-10);
-    if (clean.length !== 10) return { ok: false, error: 'Enter a valid 10-digit phone number.' };
-    return { ok: true, otp: DEMO_OTP }; // returned so UI can show it
+    if (clean.length !== 10) {
+      return { ok: false, error: 'Enter a valid 10-digit phone number.' };
+    }
+
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('allowed_users')
+        .select('id')
+        .eq('phone', clean)
+        .single();
+
+      if (error || !data) {
+        return { ok: false, error: '🚫 Access denied. This number is not registered.' };
+      }
+      return { ok: true };
+    } catch {
+      return { ok: false, error: 'Connection error. Please try again.' };
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  // Step 2: verify OTP and log in
-  const verifyOTP = useCallback((phone, otp) => {
-    if (otp !== DEMO_OTP) return { ok: false, error: 'Incorrect OTP. Try again.' };
-
+  // ── Step 2: Verify PIN against DB ────────────────────────────────
+  const verifyOTP = useCallback(async (phone, pin) => {
     const clean = phone.replace(/\D/g, '').slice(-10);
-    const found = DEMO_USERS.find((u) => u.phone === clean);
-    const loggedIn = found ?? { id: 'u_guest', phone: clean, role: 'manager', name: 'Manager User' };
 
-    setUser(loggedIn);
-    localStorage.setItem('tf_user', JSON.stringify(loggedIn));
-    return { ok: true, user: loggedIn };
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('allowed_users')
+        .select('id, name, role, phone, pin')
+        .eq('phone', clean)
+        .single();
+
+      if (error || !data) {
+        return { ok: false, error: 'User not found. Contact your administrator.' };
+      }
+
+      if (data.pin !== pin) {
+        return { ok: false, error: 'Incorrect PIN. Try again.' };
+      }
+
+      const loggedIn = {
+        id:    data.id,
+        phone: data.phone,
+        name:  data.name,
+        role:  data.role,
+      };
+
+      setUser(loggedIn);
+      localStorage.setItem('tf_user', JSON.stringify(loggedIn));
+      return { ok: true, user: loggedIn };
+    } catch {
+      return { ok: false, error: 'Connection error. Please try again.' };
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   const logout = useCallback(() => {
@@ -40,7 +83,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, sendOTP, verifyOTP, logout }}>
+    <AuthContext.Provider value={{ user, loading, sendOTP, verifyOTP, logout }}>
       {children}
     </AuthContext.Provider>
   );
