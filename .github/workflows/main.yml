@@ -17,10 +17,5 @@ jobs:
 
       - run: npm install
       - run: npm run build
-
-- name: 'notify vercel'
-  uses: 'vercel/repository-dispatch/actions/status@v1'
-  with:
-    name: Vercel - truck-flow: lint
       
       
