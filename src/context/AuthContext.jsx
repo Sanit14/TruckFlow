@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback } from 'react';
-import { supabase } from '../lib/supabase';
+import { DEMO_USERS, DEMO_OTP } from '../data/mockData';
 
 const AuthContext = createContext(null);
 
@@ -14,7 +14,7 @@ export function AuthProvider({ children }) {
   });
   const [loading, setLoading] = useState(false);
 
-  // ── Step 1: Validate phone is whitelisted ─────────────────────────
+  // ── Step 1: Validate phone number ─────────────────────────
   const sendOTP = useCallback(async (phone) => {
     const clean = phone.replace(/\D/g, '').slice(-10);
     if (clean.length !== 10) {
@@ -23,55 +23,56 @@ export function AuthProvider({ children }) {
 
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('allowed_users')
-        .select('id')
-        .eq('phone', clean)
-        .single();
+      // Simulate API latency
+      await new Promise((res) => setTimeout(res, 300));
 
-      if (error || !data) {
-        return { ok: false, error: '🚫 Access denied. This number is not registered.' };
+      const match = DEMO_USERS.find((u) => u.phone === clean);
+      if (!match) {
+        // Also allow generic login for demo purposes
+        return { ok: true, isDemoFallback: true };
       }
       return { ok: true };
     } catch {
-      return { ok: false, error: 'Connection error. Please try again.' };
+      return { ok: false, error: 'Authentication error. Please try again.' };
     } finally {
       setLoading(false);
     }
   }, []);
 
-  // ── Step 2: Verify PIN against DB ────────────────────────────────
+  // ── Step 2: Verify PIN / OTP ────────────────────────────────
   const verifyOTP = useCallback(async (phone, pin) => {
     const clean = phone.replace(/\D/g, '').slice(-10);
 
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('allowed_users')
-        .select('id, name, role, phone, pin')
-        .eq('phone', clean)
-        .single();
+      await new Promise((res) => setTimeout(res, 300));
 
-      if (error || !data) {
-        return { ok: false, error: 'User not found. Contact your administrator.' };
+      const match = DEMO_USERS.find((u) => u.phone === clean);
+      let loggedInUser = null;
+
+      if (match) {
+        if (match.pin && match.pin !== pin && pin !== DEMO_OTP) {
+          return { ok: false, error: 'Incorrect PIN. Try again.' };
+        }
+        loggedInUser = {
+          id: match.id,
+          phone: match.phone,
+          name: match.name,
+        };
+      } else {
+        // Fallback user creation for any valid 10-digit phone
+        loggedInUser = {
+          id: `u-${Date.now()}`,
+          phone: clean,
+          name: `User (${clean.slice(-4)})`,
+        };
       }
 
-      if (data.pin !== pin) {
-        return { ok: false, error: 'Incorrect PIN. Try again.' };
-      }
-
-      const loggedIn = {
-        id:    data.id,
-        phone: data.phone,
-        name:  data.name,
-        role:  data.role,
-      };
-
-      setUser(loggedIn);
-      localStorage.setItem('tf_user', JSON.stringify(loggedIn));
-      return { ok: true, user: loggedIn };
+      setUser(loggedInUser);
+      localStorage.setItem('tf_user', JSON.stringify(loggedInUser));
+      return { ok: true, user: loggedInUser };
     } catch {
-      return { ok: false, error: 'Connection error. Please try again.' };
+      return { ok: false, error: 'Authentication error. Please try again.' };
     } finally {
       setLoading(false);
     }
@@ -90,3 +91,4 @@ export function AuthProvider({ children }) {
 }
 
 export const useAuth = () => useContext(AuthContext);
+

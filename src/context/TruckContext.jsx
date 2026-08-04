@@ -2,371 +2,293 @@ import {
   createContext, useContext, useState,
   useEffect, useCallback,
 } from 'react';
-import { supabase } from '../lib/supabase';
 import {
   OFFICE_LOCATION,
   GEOFENCE_RADIUS_KM, haversineKm,
+  INITIAL_TRUCKS,
 } from '../data/mockData';
 
 const TruckContext = createContext(null);
 
-// ── DB row (snake_case) → frontend object (camelCase) ─────────────
-function dbToTruck(row) {
-  return {
-    id:              row.id,
-    name:            row.name,
-    plateNumber:     row.plate_number,
-    model:           row.model || '',
-    year:            row.year || '',
-    ownerName:       row.owner_name || '',
-    driver:          row.driver || '',
-    driverPhone:     row.driver_phone || '',
-    insuranceExpiry: row.insurance_expiry || '',
-    status:          row.status,
-    lat:             row.lat,
-    lng:             row.lng,
-    lastUpdated:     row.last_updated,
-    documents:       (row.documents || []).map(d => ({
-      id:        d.id,
-      title:     d.name,
-      type:      d.type,
-      publicUrl: d.public_url,
-      storagePath: d.storage_path,
-      date:      d.created_at,
-    })),
-  };
-}
-
 export function TruckProvider({ children }) {
-  const [trucks,  setTrucks]  = useState([]);
-  const [alerts,  setAlerts]  = useState([]);
-  const [uploads, setUploads] = useState([]);
-  const [loading, setLoading] = useState(true);
+  // ── Trucks state (synced to localStorage) ───────────────────────
+  const [trucks, setTrucks] = useState(() => {
+    try {
+      const stored = localStorage.getItem('tf_trucks');
+      return stored ? JSON.parse(stored) : INITIAL_TRUCKS;
+    } catch {
+      return INITIAL_TRUCKS;
+    }
+  });
 
-  // ── Load trucks + realtime ──────────────────────────────────────
-  useEffect(() => {
-    supabase
-      .from('trucks')
-      .select('*, documents(*)')
-      .then(({ data, error }) => {
-        if (error) console.error('Trucks load error:', error);
-        if (data) setTrucks(data.map(dbToTruck));
-        setLoading(false);
-      });
+  // ── Alerts state (synced to localStorage) ───────────────────────
+  const [alerts, setAlerts] = useState(() => {
+    try {
+      const stored = localStorage.getItem('tf_alerts');
+      return stored ? JSON.parse(stored) : [
+        {
+          id: 'alt-1',
+          truck_id: 'tk1',
+          truck_name: 'TRK-001',
+          type: 'geofence',
+          message: 'TRK-001 location updated · ✅ Inside geofence (0.7 km)',
+          created_at: new Date().toISOString(),
+        },
+        {
+          id: 'alt-2',
+          truck_id: 'tk2',
+          truck_name: 'TRK-002',
+          type: 'status',
+          message: 'TRK-002 status changed to Loading',
+          created_at: new Date(Date.now() - 3600000).toISOString(),
+        },
+      ];
+    } catch {
+      return [];
+    }
+  });
 
-    const truckChannel = supabase
-      .channel('trucks-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'trucks' },
-        async (payload) => {
-          if (payload.eventType === 'DELETE') {
-            setTrucks(prev => prev.filter(t => t.id !== payload.old.id));
-          } else {
-            // Re-fetch with documents joined
-            const { data } = await supabase
-              .from('trucks')
-              .select('*, documents(*)')
-              .eq('id', payload.new.id)
-              .single();
-            if (data) {
-              setTrucks(prev => {
-                const exists = prev.find(t => t.id === data.id);
-                if (exists) return prev.map(t => t.id === data.id ? dbToTruck(data) : t);
-                return [...prev, dbToTruck(data)];
-              });
-            }
-          }
-        })
-      .subscribe();
+  // ── Geofence radius (user-configurable, synced to localStorage) ──
+  const [geofenceRadiusKm, setGeofenceRadiusKmState] = useState(() => {
+    const stored = parseFloat(localStorage.getItem('tf_geofence_km'));
+    return Number.isFinite(stored) && stored > 0 ? stored : GEOFENCE_RADIUS_KM;
+  });
 
-    return () => supabase.removeChannel(truckChannel);
+  const setGeofenceRadiusKm = useCallback((km) => {
+    const val = Math.min(200, Math.max(1, Math.round(km)));
+    setGeofenceRadiusKmState(val);
+    try {
+      localStorage.setItem('tf_geofence_km', String(val));
+    } catch (err) {
+      console.warn('LocalStorage save failed for geofence radius:', err);
+    }
   }, []);
 
-  // ── Load alerts + realtime ──────────────────────────────────────
+  const [loading, setLoading] = useState(false);
+
+  // Sync trucks to localStorage
   useEffect(() => {
-    supabase
-      .from('alerts')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(50)
-      .then(({ data }) => { if (data) setAlerts(data); });
+    try {
+      localStorage.setItem('tf_trucks', JSON.stringify(trucks));
+    } catch (err) {
+      console.warn('LocalStorage save failed for trucks:', err);
+    }
+  }, [trucks]);
 
-    const alertChannel = supabase
-      .channel('alerts-realtime')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'alerts' },
-        (payload) => {
-          setAlerts(prev => [payload.new, ...prev.slice(0, 49)]);
-        })
-      .subscribe();
-
-    return () => supabase.removeChannel(alertChannel);
-  }, []);
-
-  // ── Load uploads ────────────────────────────────────────────────
+  // Sync alerts to localStorage
   useEffect(() => {
-    supabase
-      .from('uploads')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .then(({ data }) => {
-        if (data) setUploads(data.map(row => ({
-          id:           row.id,
-          truckId:      row.truck_id,
-          truckName:    row.truck_name,
-          photoData:    row.public_url,   // works directly as <img src>
-          status:       row.status,
-          uploaderRole: row.uploader_role,
-          uploaderName: row.uploader_name,
-          date:         row.created_at,
-        })));
-      });
-  }, []);
+    try {
+      localStorage.setItem('tf_alerts', JSON.stringify(alerts));
+    } catch (err) {
+      console.warn('LocalStorage save failed for alerts:', err);
+    }
+  }, [alerts]);
 
-  // ── Add alert (writes to DB, realtime pushes to all clients) ────
-  const addAlert = useCallback(async (alert) => {
-    await supabase.from('alerts').insert({
-      truck_id:   alert.truckId ?? null,
+  // ── Add alert ───────────────────────────────────────────────────
+  const addAlert = useCallback((alert) => {
+    const newAlert = {
+      id: `alt-${Date.now()}`,
+      truck_id: alert.truckId ?? null,
       truck_name: alert.truck,
-      type:       alert.type,
-      message:    alert.message,
-    });
+      type: alert.type,
+      message: alert.message,
+      created_at: new Date().toISOString(),
+    };
+    setAlerts((prev) => [newAlert, ...prev.slice(0, 49)]);
   }, []);
 
   // ── Update truck status ─────────────────────────────────────────
-  const updateStatus = useCallback(async (truckId, newStatus) => {
-    const truck = trucks.find(t => t.id === truckId);
-    const { error } = await supabase
-      .from('trucks')
-      .update({ status: newStatus, last_updated: new Date().toISOString() })
-      .eq('id', truckId);
+  const updateStatus = useCallback((truckId, newStatus) => {
+    setTrucks((prev) => {
+      const target = prev.find((t) => t.id === truckId);
+      if (!target) return prev;
+      return prev.map((t) =>
+        t.id === truckId ? { ...t, status: newStatus, lastUpdated: new Date().toISOString() } : t
+      );
+    });
 
-    if (!error && truck) {
-      await addAlert({
+    const truck = trucks.find((t) => t.id === truckId);
+    if (truck) {
+      addAlert({
         truckId,
-        truck:   truck.name,
-        type:    'status',
+        truck: truck.name,
+        type: 'status',
         message: `${truck.name} status changed to ${newStatus}`,
       });
     }
   }, [trucks, addAlert]);
 
   // ── Update truck location ───────────────────────────────────────
-  const updateLocation = useCallback(async (truckId, lat, lng) => {
+  const updateLocation = useCallback((truckId, lat, lng) => {
     const latNum = parseFloat(lat);
     const lngNum = parseFloat(lng);
     if (isNaN(latNum) || isNaN(lngNum)) return { ok: false, error: 'Invalid coordinates' };
 
-    const { error } = await supabase
-      .from('trucks')
-      .update({ lat: latNum, lng: lngNum, last_updated: new Date().toISOString() })
-      .eq('id', truckId);
+    setTrucks((prev) =>
+      prev.map((t) =>
+        t.id === truckId ? { ...t, lat: latNum, lng: lngNum, lastUpdated: new Date().toISOString() } : t
+      )
+    );
 
-    if (error) return { ok: false, error: error.message };
-
-    const dist   = haversineKm(latNum, lngNum, OFFICE_LOCATION.lat, OFFICE_LOCATION.lng);
-    const inside = dist <= GEOFENCE_RADIUS_KM;
-    const truck  = trucks.find(t => t.id === truckId);
+    const dist = haversineKm(latNum, lngNum, OFFICE_LOCATION.lat, OFFICE_LOCATION.lng);
+    const inside = dist <= geofenceRadiusKm;
+    const truck = trucks.find((t) => t.id === truckId);
     if (truck) {
-      await addAlert({
+      addAlert({
         truckId,
-        truck:   truck.name,
-        type:    'geofence',
+        truck: truck.name,
+        type: 'geofence',
         message: `${truck.name} location updated · ${inside ? '✅ Inside' : '⚠️ Outside'} geofence (${dist.toFixed(1)} km)`,
       });
     }
     return { ok: true };
-  }, [trucks, addAlert]);
+  }, [trucks, addAlert, geofenceRadiusKm]);
 
   // ── Add a new truck ─────────────────────────────────────────────
-  const addTruck = useCallback(async (data) => {
+  const addTruck = useCallback((data) => {
     const newId = `tk${Date.now()}`;
-    const payload = {
-      id:               newId,
-      name:             data.name?.trim() || `TRK-${String(Date.now()).slice(-3)}`,
-      plate_number:     data.plateNumber.trim(),
-      model:            data.model?.trim() || '',
-      year:             data.year ? parseInt(data.year) : null,
-      owner_name:       data.ownerName?.trim() || '',
-      driver:           data.driver?.trim() || '',
-      driver_phone:     data.driverPhone?.trim() || '',
-      insurance_expiry: data.insuranceExpiry || null,
-      status:           'Idle',
-      lat:              OFFICE_LOCATION.lat,
-      lng:              OFFICE_LOCATION.lng,
+    const newTruck = {
+      id: newId,
+      name: data.name?.trim() || `TRK-${String(Date.now()).slice(-3)}`,
+      plateNumber: data.plateNumber.trim(),
+      model: data.model?.trim() || '',
+      year: data.year ? parseInt(data.year) : null,
+      ownerName: data.ownerName?.trim() || '',
+      driver: data.driver?.trim() || '',
+      driverPhone: data.driverPhone?.trim() || '',
+      insuranceExpiry: data.insuranceExpiry || '',
+      status: 'Idle',
+      lat: OFFICE_LOCATION.lat,
+      lng: OFFICE_LOCATION.lng,
+      lastUpdated: new Date().toISOString(),
+      documents: [],
     };
-    const { error } = await supabase.from('trucks').insert(payload);
-    if (error) { console.error('Add truck error:', error); return; }
-    await addAlert({
+
+    setTrucks((prev) => [newTruck, ...prev]);
+
+    addAlert({
       truckId: newId,
-      truck:   payload.name,
-      type:    'status',
-      message: `${payload.name} (${payload.plate_number}) added to fleet`,
+      truck: newTruck.name,
+      type: 'status',
+      message: `${newTruck.name} (${newTruck.plateNumber}) added to fleet`,
     });
   }, [addAlert]);
 
   // ── Edit a truck ────────────────────────────────────────────────
-  const editTruck = useCallback(async (truckId, data) => {
-    const truck = trucks.find(t => t.id === truckId);
-    const { error } = await supabase
-      .from('trucks')
-      .update({
-        name:             data.name?.trim()        || truck?.name,
-        plate_number:     data.plateNumber?.trim() || truck?.plateNumber,
-        model:            data.model?.trim()        || '',
-        year:             data.year ? parseInt(data.year) : null,
-        owner_name:       data.ownerName?.trim()   || '',
-        driver:           data.driver?.trim()       || '',
-        driver_phone:     data.driverPhone?.trim()  || '',
-        insurance_expiry: data.insuranceExpiry      || null,
-        last_updated:     new Date().toISOString(),
-      })
-      .eq('id', truckId);
+  const editTruck = useCallback((truckId, data) => {
+    const truck = trucks.find((t) => t.id === truckId);
+    if (!truck) return;
 
-    if (!error) {
-      await addAlert({
-        truckId,
-        truck:   data.name || truck?.name,
-        type:    'status',
-        message: `${data.name || truck?.name} details updated`,
-      });
-    }
+    const updatedName = data.name?.trim() || truck.name;
+
+    setTrucks((prev) =>
+      prev.map((t) =>
+        t.id === truckId
+          ? {
+              ...t,
+              name: updatedName,
+              plateNumber: data.plateNumber?.trim() || t.plateNumber,
+              model: data.model?.trim() ?? t.model,
+              year: data.year ? parseInt(data.year) : t.year,
+              ownerName: data.ownerName?.trim() ?? t.ownerName,
+              driver: data.driver?.trim() ?? t.driver,
+              driverPhone: data.driverPhone?.trim() ?? t.driverPhone,
+              insuranceExpiry: data.insuranceExpiry ?? t.insuranceExpiry,
+              lastUpdated: new Date().toISOString(),
+            }
+          : t
+      )
+    );
+
+    addAlert({
+      truckId,
+      truck: updatedName,
+      type: 'status',
+      message: `${updatedName} details updated`,
+    });
   }, [trucks, addAlert]);
 
   // ── Remove a truck ──────────────────────────────────────────────
-  const removeTruck = useCallback(async (truckId) => {
-    const truck = trucks.find(t => t.id === truckId);
-    await supabase.from('trucks').delete().eq('id', truckId);
+  const removeTruck = useCallback((truckId) => {
+    const truck = trucks.find((t) => t.id === truckId);
+    setTrucks((prev) => prev.filter((t) => t.id !== truckId));
+
     if (truck) {
-      await addAlert({
+      addAlert({
         truckId,
-        truck:   truck.name,
-        type:    'status',
+        truck: truck.name,
+        type: 'status',
         message: `${truck.name} removed from fleet`,
       });
     }
   }, [trucks, addAlert]);
 
-  // ── Add a photo upload → Supabase Storage ──────────────────────
-  const addUpload = useCallback(async (truckId, truckName, file, status, uploaderRole, uploaderName) => {
-    if (!file || !(file instanceof File)) return { ok: false, error: 'No file provided' };
-
-    const ext         = file.name.split('.').pop();
-    const storagePath = `${truckId}/${Date.now()}.${ext}`;
-
-    const { error: uploadError } = await supabase.storage
-      .from('truck-uploads')
-      .upload(storagePath, file, { cacheControl: '3600', upsert: false });
-
-    if (uploadError) {
-      console.error('Upload failed:', uploadError);
-      return { ok: false, error: uploadError.message };
-    }
-
-    const { data: { publicUrl } } = supabase.storage
-      .from('truck-uploads')
-      .getPublicUrl(storagePath);
-
-    const { error: dbError } = await supabase.from('uploads').insert({
-      truck_id:      truckId,
-      truck_name:    truckName,
-      status,
-      storage_path:  storagePath,
-      public_url:    publicUrl,
-      uploader_role: uploaderRole,
-      uploader_name: uploaderName,
-    });
-
-    if (!dbError) {
-      setUploads(prev => [{
-        id:           crypto.randomUUID(),
-        truckId, truckName,
-        photoData:    publicUrl,
-        status, uploaderRole, uploaderName,
-        date:         new Date().toISOString(),
-      }, ...prev]);
-    }
-    return { ok: !dbError };
-  }, []);
-
-  // ── Add a document → Supabase Storage ──────────────────────────
+  // ── Add a document (Local Data URL / Object URL) ────────────────
   const addDocument = useCallback(async (truckId, docData) => {
-    // docData = { title, type, file: File }
     if (!docData.file || !(docData.file instanceof File)) {
       return { ok: false, error: 'No file provided' };
     }
 
-    const ext         = docData.file.name.split('.').pop();
-    const storagePath = `${truckId}/${Date.now()}_${docData.type}.${ext}`;
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const publicUrl = reader.result;
+        const newDoc = {
+          id: `doc-${Date.now()}`,
+          title: docData.title,
+          type: docData.type,
+          publicUrl,
+          storagePath: docData.file.name,
+          date: new Date().toISOString(),
+        };
 
-    const { error: uploadError } = await supabase.storage
-      .from('truck-documents')
-      .upload(storagePath, docData.file, { cacheControl: '3600', upsert: false });
-
-    if (uploadError) return { ok: false, error: uploadError.message };
-
-    const { data: { publicUrl } } = supabase.storage
-      .from('truck-documents')
-      .getPublicUrl(storagePath);
-
-    const { data: inserted, error: dbError } = await supabase
-      .from('documents')
-      .insert({
-        truck_id:     truckId,
-        name:         docData.title,
-        type:         docData.type,
-        storage_path: storagePath,
-        public_url:   publicUrl,
-      })
-      .select()
-      .single();
-
-    if (!dbError && inserted) {
-      const newDoc = {
-        id:          inserted.id,
-        title:       inserted.name,
-        type:        inserted.type,
-        publicUrl:   inserted.public_url,
-        storagePath: inserted.storage_path,
-        date:        inserted.created_at,
+        setTrucks((prev) =>
+          prev.map((t) =>
+            t.id === truckId ? { ...t, documents: [...(t.documents || []), newDoc] } : t
+          )
+        );
+        resolve({ ok: true });
       };
-      setTrucks(prev => prev.map(t =>
-        t.id === truckId ? { ...t, documents: [...(t.documents || []), newDoc] } : t
-      ));
-    }
-    return { ok: !dbError };
+      reader.onerror = () => resolve({ ok: false, error: 'Failed to read document' });
+      reader.readAsDataURL(docData.file);
+    });
   }, []);
 
   // ── Remove a document ───────────────────────────────────────────
-  const removeDocument = useCallback(async (truckId, docId) => {
-    const truck = trucks.find(t => t.id === truckId);
-    const doc   = (truck?.documents || []).find(d => d.id === docId);
-
-    if (doc?.storagePath) {
-      await supabase.storage.from('truck-documents').remove([doc.storagePath]);
-    }
-    await supabase.from('documents').delete().eq('id', docId);
-
-    setTrucks(prev => prev.map(t =>
-      t.id === truckId
-        ? { ...t, documents: (t.documents || []).filter(d => d.id !== docId) }
-        : t
-    ));
-  }, [trucks]);
+  const removeDocument = useCallback((truckId, docId) => {
+    setTrucks((prev) =>
+      prev.map((t) =>
+        t.id === truckId
+          ? { ...t, documents: (t.documents || []).filter((d) => d.id !== docId) }
+          : t
+      )
+    );
+  }, []);
 
   // ── Computed geofence distances ─────────────────────────────────
-  const truckDistances = trucks.map(t => {
+  const truckDistances = trucks.map((t) => {
     const distKm = haversineKm(t.lat, t.lng, OFFICE_LOCATION.lat, OFFICE_LOCATION.lng);
-    return { id: t.id, distKm, inside: distKm <= GEOFENCE_RADIUS_KM };
+    return { id: t.id, distKm, inside: distKm <= geofenceRadiusKm };
   });
 
   return (
-    <TruckContext.Provider value={{
-      trucks, alerts, uploads, loading,
-      addTruck, removeTruck, editTruck,
-      updateStatus, updateLocation,
-      truckDistances,
-      addDocument, removeDocument,
-      addUpload,
-    }}>
+    <TruckContext.Provider
+      value={{
+        trucks,
+        alerts,
+        loading,
+        addTruck,
+        removeTruck,
+        editTruck,
+        updateStatus,
+        updateLocation,
+        truckDistances,
+        addDocument,
+        removeDocument,
+        geofenceRadiusKm,
+        setGeofenceRadiusKm,
+      }}
+    >
       {children}
     </TruckContext.Provider>
   );

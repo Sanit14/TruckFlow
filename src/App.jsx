@@ -1,18 +1,24 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { TruckProvider } from './context/TruckContext';
+import { ToastProvider } from './components/Common/Toast';
+import MeshBackground from './components/Common/MeshBackground';
 import LoginPage from './components/Auth/LoginPage';
 import Navbar from './components/Common/Navbar';
-import AdminDashboard from './components/Admin/AdminDashboard';
-import TruckMap from './components/Admin/TruckMap';
-import ManagerDashboard from './components/Manager/ManagerDashboard';
+import Dashboard from './components/Dashboard/Dashboard';
+import TruckMap from './components/Dashboard/TruckMap';
+import LandingPage from './components/Landing/LandingPage';
+import TrialDemoPage from './components/Landing/TrialDemoPage';
+import SignupPage from './components/Landing/SignupPage';
+import PageWipe from './components/Common/PageWipe';
 
 // ── Protected layout wrapper ──────────────────────────────────────
 function AppShell({ children }) {
   return (
-    <div className="flex flex-col min-h-screen bg-[#0b0d14]">
+    <div className="flex flex-col min-h-screen bg-[#0b0d14] relative">
+      <MeshBackground />
       <Navbar />
-      <main className="flex-1 overflow-hidden flex flex-col">
+      <main className="flex-1 overflow-hidden flex flex-col relative z-10">
         {children}
       </main>
     </div>
@@ -20,13 +26,9 @@ function AppShell({ children }) {
 }
 
 // ── Route guard ───────────────────────────────────────────────────
-function RequireAuth({ children, role }) {
+function RequireAuth({ children }) {
   const { user } = useAuth();
   if (!user) return <Navigate to="/login" replace />;
-  if (role && user.role !== role) {
-    // Redirect to correct dashboard
-    return <Navigate to={user.role === 'admin' ? '/admin' : '/manager'} replace />;
-  }
   return children;
 }
 
@@ -36,27 +38,31 @@ function AppRoutes() {
 
   return (
     <Routes>
+      <Route path="/" element={<LandingPage />} />
+      <Route path="/trial" element={<TrialDemoPage />} />
+      <Route path="/signup" element={<SignupPage />} />
+
       <Route
         path="/login"
-        element={user ? <Navigate to={user.role === 'admin' ? '/admin' : '/manager'} replace /> : <LoginPage />}
+        element={user ? <Navigate to="/dashboard" replace /> : <LoginPage />}
       />
 
       <Route
-        path="/admin"
+        path="/dashboard"
         element={
-          <RequireAuth role="admin">
+          <RequireAuth>
             <AppShell>
-              <AdminDashboard />
+              <Dashboard />
             </AppShell>
           </RequireAuth>
         }
       />
 
-      {/* Full-screen live map for admins */}
+      {/* Full-screen live map */}
       <Route
-        path="/admin/map"
+        path="/dashboard/map"
         element={
-          <RequireAuth role="admin">
+          <RequireAuth>
             <AppShell>
               <div className="flex-1 p-4 md:p-6 flex flex-col gap-4 animate-fade-in">
                 <div>
@@ -64,20 +70,9 @@ function AppRoutes() {
                   <p className="text-slate-400 text-sm mt-0.5">Real-time fleet positions &amp; geofence</p>
                 </div>
                 <div className="flex-1 glass rounded-2xl p-3 min-h-[480px]">
-                  <TruckMap />
+                  <TruckMap showRadiusControl />
                 </div>
               </div>
-            </AppShell>
-          </RequireAuth>
-        }
-      />
-
-      <Route
-        path="/manager"
-        element={
-          <RequireAuth>
-            <AppShell>
-              <ManagerDashboard />
             </AppShell>
           </RequireAuth>
         }
@@ -86,12 +81,7 @@ function AppRoutes() {
       {/* Default redirect */}
       <Route
         path="*"
-        element={
-          <Navigate
-            to={user ? (user.role === 'admin' ? '/admin' : '/manager') : '/login'}
-            replace
-          />
-        }
+        element={<Navigate to={user ? '/dashboard' : '/login'} replace />}
       />
     </Routes>
   );
@@ -101,9 +91,12 @@ function AppRoutes() {
 export default function App() {
   return (
     <BrowserRouter>
+      <PageWipe />
       <AuthProvider>
         <TruckProvider>
-          <AppRoutes />
+          <ToastProvider>
+            <AppRoutes />
+          </ToastProvider>
         </TruckProvider>
       </AuthProvider>
     </BrowserRouter>

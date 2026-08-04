@@ -5,10 +5,8 @@ export const GEOFENCE_RADIUS_KM = 5;
 
 // ── Demo accounts ─────────────────────────────────────────────────
 // TO CHANGE PHONE NUMBERS: edit the `phone` values below (10-digit, no country code).
-// Role must be 'admin' or 'manager'.
 export const DEMO_USERS = [
-  { id: 'u1', phone: '9579115044', role: 'admin', name: 'Admin User' },
-  { id: 'u2', phone: '9403014786', role: 'manager', name: 'Manager User' },
+  { id: 'u1', phone: '9579115044', name: 'Demo User' },
 ];
 
 // ── Quick reference: Indian city coordinates ───────────────────────
@@ -59,7 +57,7 @@ export const INITIAL_TRUCKS = [
   }
 ];
 
-export const TRUCK_STATUSES = ['Idle', 'Loading', 'Unloading', 'Incoming', 'Outgoing'];
+export const TRUCK_STATUSES = ['Idle', 'Loading', 'Unloading', 'Incoming', 'Outgoing', 'Service'];
 
 /** Returns Tailwind class key for a status */
 export const statusKey = (status) => status?.toLowerCase() ?? 'idle';
