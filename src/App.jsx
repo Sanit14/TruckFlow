@@ -90,7 +90,7 @@ function AppRoutes() {
 // ── Root export ───────────────────────────────────────────────────
 export default function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={import.meta.env.BASE_URL}>
       <PageWipe />
       <AuthProvider>
         <TruckProvider>
